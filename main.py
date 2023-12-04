@@ -522,4 +522,4 @@ def get_predicted_temperature():
     return jsonify(response)
 
 if __name__ == '__main__':
-    app.run(port=8010)
+    app.run(host='0.0.0.0',port=8010)
