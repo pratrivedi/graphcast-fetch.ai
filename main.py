@@ -514,11 +514,12 @@ def get_predicted_temperature():
     )
 
     # Create a response in JSON format
+    celcius_temperature = round(after_desired_temperature.to_dict()["data"] - 273.15, 2)
+    # Create a response in JSON format
     response = {
-        'predicted_temperature': after_desired_temperature.to_dict()["data"],
-        'unit': 'Kelvin'  # You may adjust the unit based on your application
+        'Expected temperature is ': str(celcius_temperature) + " Celcius",
     }
     return jsonify(response)
 
 if __name__ == '__main__':
-    app.run(port=5000)
+    app.run(port=8010)
