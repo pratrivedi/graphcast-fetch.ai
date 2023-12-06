@@ -531,10 +531,10 @@ def get_predicted_temperature():
     # Create a response in JSON format
 
     response = {
-        "message": f"The next {desired_time} weather prediction for lat: {desired_lat} and long: {desired_lon} will be-",
-        "expected temperature": f"{celcius_temperature} Celsius",
-        "expected wind speed": f"{wind_speed} m/s",
-        "expected monthly mean precipitation": f'{round(predictions["total_precipitation_6hr"][0].sel(lat=desired_lat, lon=desired_lon, method="nearest").to_dict()["data"][0], 5)} m/s',
+        "time": "6",
+        "temperature": f"{celcius_temperature} Celsius",
+        "wind": f"{wind_speed} m/s",
+        "rain": f'{round(predictions["total_precipitation_6hr"][0].sel(lat=desired_lat, lon=desired_lon, method="nearest").to_dict()["data"][0], 5)} m/s',
     }
 
     return jsonify(response)
