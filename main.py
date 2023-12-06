@@ -488,7 +488,31 @@ import xarray as xr
 from datetime import timedelta
 app = Flask(__name__)
 
-@app.route('/predicted_temperature', methods=['GET'])
+import math
+
+def calculate_wind_speed_and_temperature(lat, lon):
+    # Calculate wind speed
+    u = (
+        predictions["u_component_of_wind"][0]
+        .sel(lat=lat, lon=lon, level=50, method="nearest")
+        .to_dict()["data"][0]
+    )
+    v = (
+        predictions["v_component_of_wind"][0]
+        .sel(lat=lat, lon=lon, level=50, method="nearest")
+        .to_dict()["data"][0]
+    )
+    return round(math.sqrt(u**2 + v**2), 2)
+
+
+# def convert_monthly_precipitation_to_mm(precipitation_m_per_s):
+#     days_in_month = 30  # Adjust as needed
+#     seconds_in_day = 86400  # 24 hours * 60 minutes * 60 seconds
+#     precipitation_mm = precipitation_m_per_s * days_in_month * seconds_in_day * 1000
+#     return precipitation_mm
+
+
+@app.route("/predicted_temperature", methods=["GET"])
 def get_predicted_temperature():
     payload = request.get_json()
 
@@ -496,29 +520,23 @@ def get_predicted_temperature():
     desired_lon = payload.get("longitude")
     desired_time = "06:00:00"
 
-
-    # Select the temperature at the desired location and time
-    before_desired_temperature = data["Targets"][0].sel(
-        lat=desired_lat, lon=desired_lon, time=desired_time, method="nearest"
-    )
-
+    wind_speed = calculate_wind_speed_and_temperature(desired_lat, desired_lon)
 
     # Select the temperature at the desired location and time
     after_desired_temperature = data["Predictions"][0].sel(
         lat=desired_lat, lon=desired_lon, time=desired_time, method="nearest"
     )
-
-    # Print the result
-    print(
-        f"Predicted temperature at {desired_lat}° latitude, {desired_lon}° longitude, and {desired_time}: {after_desired_temperature.values}"
-    )
-
-    # Create a response in JSON format
     celcius_temperature = round(after_desired_temperature.to_dict()["data"] - 273.15, 2)
+
     # Create a response in JSON format
+
     response = {
-        'Expected temperature is ': str(celcius_temperature) + " Celcius",
+        "message": f"The next {desired_time} weather prediction for lat: {desired_lat} and long: {desired_lon} will be-",
+        "expected temperature": f"{celcius_temperature} Celsius",
+        "expected wind speed": f"{wind_speed} m/s",
+        "expected monthly mean precipitation": f'{round(predictions["total_precipitation_6hr"][0].sel(lat=desired_lat, lon=desired_lon, method="nearest").to_dict()["data"][0], 5)} m/s',
     }
+
     return jsonify(response)
 
 if __name__ == '__main__':
