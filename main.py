@@ -490,6 +490,37 @@ app = Flask(__name__)
 
 import math
 
+
+def convert_degrees_to_cardinal(direction_degrees):
+    # Define cardinal directions
+    cardinal_directions = [
+        "N",
+        "NNE",
+        "NE",
+        "ENE",
+        "E",
+        "ESE",
+        "SE",
+        "SSE",
+        "S",
+        "SSW",
+        "SW",
+        "WSW",
+        "W",
+        "WNW",
+        "NW",
+        "NNW",
+    ]
+
+    # Calculate the index in the cardinal_directions list
+    index = round(direction_degrees / (360.0 / len(cardinal_directions))) % len(
+        cardinal_directions
+    )
+
+    # Return the corresponding cardinal direction
+    return cardinal_directions[index]
+
+
 def calculate_wind_speed_and_temperature(lat, lon):
     # Calculate wind speed
     u = (
@@ -502,7 +533,15 @@ def calculate_wind_speed_and_temperature(lat, lon):
         .sel(lat=lat, lon=lon, level=50, method="nearest")
         .to_dict()["data"][0]
     )
-    return round(math.sqrt(u**2 + v**2), 2)
+
+    wind_direction_rad = math.atan2(v, u)
+
+    # Convert wind direction from radians to degrees
+    wind_direction_deg = math.degrees(wind_direction_rad)
+
+    direction = convert_degrees_to_cardinal(wind_direction_deg)
+
+    return round(math.sqrt(u**2 + v**2), 2), direction
 
 
 # def convert_monthly_precipitation_to_mm(precipitation_m_per_s):
@@ -520,7 +559,9 @@ def get_predicted_temperature():
     desired_lon = payload.get("longitude")
     desired_time = "06:00:00"
 
-    wind_speed = calculate_wind_speed_and_temperature(desired_lat, desired_lon)
+    wind_speed, wind_direction = calculate_wind_speed_and_temperature(
+        desired_lat, desired_lon
+    )
 
     # Select the temperature at the desired location and time
     after_desired_temperature = data["Predictions"][0].sel(
@@ -533,7 +574,7 @@ def get_predicted_temperature():
     response = {
         "time": "6",
         "temperature": f"{celcius_temperature} Celsius",
-        "wind": f"{wind_speed} m/s",
+        "wind": f"{wind_speed} m/s {wind_direction}",
         "rain": f'{round(predictions["total_precipitation_6hr"][0].sel(lat=desired_lat, lon=desired_lon, method="nearest").to_dict()["data"][0], 5)} m/s',
     }
 
