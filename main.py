@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 from typing import Optional
 import math
-from IPython.display import HTML
 import datetime
 import webbrowser
 from graphcast import data_utils
@@ -21,8 +20,9 @@ from graphcast import normalization
 from graphcast import autoregressive
 
 GRAPHCAST_SMALL_DATA_SOURCE = "data_files/modeltypes/params_GraphCast_small - ERA5 1979-2015 - resolution 1.0 - pressure levels 13 - mesh 2to5 - precipitation input and output.npz"
-GRAPHCAST_SMALL_SAMPLE_DATA = "data_files/valid_dataset_for_graphcast_small/dataset_source-era5_date-2022-01-01_res-1.0_levels-13_steps-01.nc"
-# GRAPHCAST_SMALL_SAMPLE_DATA = 'data_files/valid_dataset_for_graphcast_small/dataset_source-era5_date-2022-01-01_res-1.0_levels-13_steps-04.nc'
+# GRAPHCAST_SMALL_SAMPLE_DATA = "data_files/valid_dataset_for_graphcast_small/dataset_source-era5_date-2022-01-01_res-1.0_levels-13_steps-01.nc"
+GRAPHCAST_SMALL_SAMPLE_DATA = 'data_files/valid_dataset_for_graphcast_small/dataset_source-era5_date-2022-01-01_res-0.25_levels-13_steps-04.nc'
+# GRAPHCAST_SMALL_SAMPLE_DATA = 'data_files/valid_dataset_for_graphcast_small/dataset_source-era5_date-2022-01-01_res-0.25_levels-13_steps-12.nc'
 DIFF_STANDARD_DEVIATION_BY_LEVEL = "data_files/stats/stats_diffs_stddev_by_level.nc"
 MEAN_BY_LEVEL = "data_files/stats/stats_mean_by_level.nc"
 STANDARD_DEVIATION_BY_LEVEL = "data_files/stats/stats_stddev_by_level.nc"
@@ -473,7 +473,7 @@ data = {
     ),
 }
 
-
+breakpoint()
 # Print the extracted data
 fig_title = PLOT_EXAMPLE_VARIABLE
 if "level" in predictions[PLOT_EXAMPLE_VARIABLE].coords:
@@ -482,12 +482,11 @@ if "level" in predictions[PLOT_EXAMPLE_VARIABLE].coords:
 plot_data(data, fig_title, PLOT_SIZE, PLOT_EXAMPLE_ROBUST)
 
 
+
 from flask import Flask, jsonify, request
 import numpy as np
-import xarray as xr
-from datetime import timedelta
-app = Flask(__name__)
 
+app = Flask(__name__)
 import math
 
 
@@ -511,7 +510,6 @@ def convert_degrees_to_cardinal(direction_degrees):
         "NW",
         "NNW",
     ]
-
     # Calculate the index in the cardinal_directions list
     index = round(direction_degrees / (360.0 / len(cardinal_directions))) % len(
         cardinal_directions
@@ -524,8 +522,7 @@ def convert_degrees_to_cardinal(direction_degrees):
 def calculate_wind_speed_and_temperature(lat, lon):
     # Calculate wind speed
     u = (
-        predictions["u_component_of_wind"][0]
-        .sel(lat=lat, lon=lon, level=50, method="nearest")
+        predictions["u_component_of_wind"][0].sel(lat=lat, lon=lon, level=50, method="nearest")
         .to_dict()["data"][0]
     )
     v = (
@@ -544,41 +541,45 @@ def calculate_wind_speed_and_temperature(lat, lon):
     return round(math.sqrt(u**2 + v**2), 2), direction
 
 
-# def convert_monthly_precipitation_to_mm(precipitation_m_per_s):
-#     days_in_month = 30  # Adjust as needed
-#     seconds_in_day = 86400  # 24 hours * 60 minutes * 60 seconds
-#     precipitation_mm = precipitation_m_per_s * days_in_month * seconds_in_day * 1000
-#     return precipitation_mm
-
-
 @app.route("/predicted_temperature", methods=["GET"])
 def get_predicted_temperature():
     payload = request.get_json()
 
-    desired_lat = payload.get("latitude")
-    desired_lon = payload.get("longitude")
-    desired_time = "06:00:00"
+    outputs = 2
+    lat = payload.get("latitude")
+    lon = payload.get("longitude")
+    time_array = ["06", "12"]
+    
+    # calculate the temperature at the desired location and time
+    temperature_data = predictions["2m_temperature"].sel(lat=lat, lon=lon).squeeze().isel(time=slice(0, outputs)).values.tolist()
+    temperature = [round(i - 273.15, 2) for i in temperature_data]
 
-    wind_speed, wind_direction = calculate_wind_speed_and_temperature(
-        desired_lat, desired_lon
-    )
+    # time duration array
+    # timedelta_array = temperature_data.isel(time=slice(0, 2))["time"].values.tolist()
+    # timedelta_array = [i//(36*(10**11)) for i in timedelta_array]
 
-    # Select the temperature at the desired location and time
-    after_desired_temperature = data["Predictions"][0].sel(
-        lat=desired_lat, lon=desired_lon, time=desired_time, method="nearest"
-    )
-    celcius_temperature = round(after_desired_temperature.to_dict()["data"] - 273.15, 2)
 
-    # Create a response in JSON format
+    # calculate wind speed and direction
+    u_wind_data = predictions["u_component_of_wind"].sel(lat=lat, lon=lon, level=50, method="nearest").squeeze().isel(time=slice(0, outputs)).values.tolist()
+    v_wind_data = predictions["v_component_of_wind"].sel(lat=lat, lon=lon, level=50, method="nearest").squeeze().isel(time=slice(0, outputs)).values.tolist()
+    wind_speed = [round(math.sqrt(u**2 + v**2), 2) for u, v in zip(u_wind_data, v_wind_data)]
+    wind_direction = [convert_degrees_to_cardinal(math.degrees(math.atan2(v, u))) for u, v in zip(u_wind_data, v_wind_data)]
 
-    response = {
-        "time": "6",
-        "temperature": f"{celcius_temperature} Celsius",
-        "wind": f"{wind_speed} m/s {wind_direction}",
-        "rain": f'{round(predictions["total_precipitation_6hr"][0].sel(lat=desired_lat, lon=desired_lon, method="nearest").to_dict()["data"][0], 5)} m/s',
-    }
+    precipitation = predictions["total_precipitation_6hr"].sel(lat=lat, lon=lon, method="nearest").squeeze().isel(time=slice(0, outputs)).values.tolist()
+    rain = [abs(i*1000) for i in precipitation]
 
-    return jsonify(response)
+    responses = []
+
+    for i in range(outputs):
+        response = {
+            "time": time_array[i],  # Extract only the hour part
+            "temperature": f"{temperature[i]} Celsius",
+            "wind": f"{wind_speed[0]} m/s {wind_direction[i]}",
+            "rain in 6h": f'{round(rain[i], 5)} mm',
+        }
+
+        responses.append(response)
+    return jsonify(responses)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port=8012)
