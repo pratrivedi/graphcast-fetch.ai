@@ -29,7 +29,7 @@ STANDARD_DEVIATION_BY_LEVEL = "data_files/stats/stats_stddev_by_level.nc"
 
 SOURCE_1 = "random"
 SOURCE_2 = "checkpoint"
-SOURCE_TO_USE = SOURCE_2
+SOURCE_TO_USE = SOURCE_1
 
 # CONSTANTS FOR GRAPHCAST MODEL CONFIG IS SOURCE = RANDOM
 RANDOM_MESH_SIZE = 5
@@ -473,7 +473,6 @@ data = {
     ),
 }
 
-breakpoint()
 # Print the extracted data
 fig_title = PLOT_EXAMPLE_VARIABLE
 if "level" in predictions[PLOT_EXAMPLE_VARIABLE].coords:
