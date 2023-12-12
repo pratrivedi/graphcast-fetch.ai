@@ -550,7 +550,7 @@ def get_predicted_temperature():
     time_array = ["06", "12"]
     
     # calculate the temperature at the desired location and time
-    temperature_data = predictions["2m_temperature"].sel(lat=lat, lon=lon).squeeze().isel(time=slice(0, outputs)).values.tolist()
+    temperature_data = predictions["2m_temperature"].sel(lat=lat, lon=lon, method="nearest").squeeze().isel(time=slice(0, outputs)).values.tolist()
     temperature = [round(i - 273.15, 2) for i in temperature_data]
 
     # time duration array
